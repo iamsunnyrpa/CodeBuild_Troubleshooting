@@ -1,0 +1,100 @@
+1. When you are building ECR images with AWS CodeBuild project you need to make sure service role have below permissions attached. 
+
+ecr:GetAuthorizationToken: This allows CodeBuild to retrieve an authentication token to access ECR.
+ecr:BatchCheckLayerAvailability: Allows CodeBuild to check if image layers already exist in ECR.
+ecr:CompleteLayerUpload: Allows CodeBuild to finalize the upload of image layers.
+ecr:InitiateLayerUpload: Allows CodeBuild to start uploading image layers.
+ecr:PutImage: Allows CodeBuild to push the final Docker image to ECR.
+ecr:UploadLayerPart: Allows CodeBuild to upload parts of image layers.
+
+Json policy will look a like as below.
+
+----------------------------------
+    {
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:CompleteLayerUpload",
+        "ecr:GetAuthorizationToken",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart"
+      ],
+      "Resource": "<ECR-Repository-ARN>",
+      "Effect": "Allow"
+    }
+-----------------------------------
+
+
+2. When using cross account ECR repository image with CodeBuild you need to make sure, it have below configurations present. 
+
+--> Attach below policy to your ECR repository which present in another AWS account and replace <account-id> with actual AWS account IS where the CodeBuild project is present.
+
+-----------------------------------
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowPushPull",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::<account-id>:root"
+      },
+      "Action": [
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "ecr:BatchCheckLayerAvailability",
+      ]
+    }
+  ]
+}
+-----------------------------------
+
+--> Your CodeBuild service role must need below permissions attached to get the cross account ECR image access.
+
+-----------------------------------
+ {
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:CompleteLayerUpload",
+        "ecr:GetAuthorizationToken",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart"
+      ],
+      "Resource": "<ECR-Repository-ARN>",
+      "Effect": "Allow"
+}
+-----------------------------------
+
+
+3. To start Docker manually in AWS CodeBuild with build commands, you must add below commands to CodeBuild build commands. For non VPC builds Docker is running with privilege mode and with VPC you must enable privilege mode with CodeBuild settings.
+
+-----------------------------------
+version: 0.2 
+
+phases:  
+    install:    
+        commands:      
+            - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://1      
+            - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"  
+    build:    
+        commands:       
+            - echo "Hello World"
+-----------------------------------
+
+
+4. To use Secret Manager with AWS CodeBuild you only need "secretsmanager:GetSecretValue" permission to your CodeBuild service role. If your secrets are encrypted with custom KMS keys, you must add "kms:Decrypt" permission to your CodeBuild service role.
+
+
+5. When you CodeBuild start failing in 'PROVISIONING' phase, you need to check below details.
+--> Check the availability of ECR image which you are using. Make sure your CodeBuild service role have permissions mentioned in [2].
+--> If your CodeBuild service role is missing below permission, it will fail in 'PROVISIONING' phase.
+
+-----------------------------------
+"ec2:CreateNetworkInterfacePermission" 
+"ec2:DescribeDhcpOptions" 
+"ec2:CreateNetworkInterface" 
+"ec2:DeleteNetworkInterface"
+-----------------------------------
+
+--> If you are using default source credentials and unable to authenticate with the source successfully, it will fail in 'PROVISIONING' phase. 
