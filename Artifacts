@@ -1,0 +1,11 @@
+When you are using AWS CodeBuild with AWS CodePipeline and CodeBuild project have multiple input artifacts and wanted to build specific artifact, your CodeBuild commands should look like as below. 
+
+version: 0.2 
+phases:  
+    build:    
+        commands:       
+            - echo "Hello World"       
+            #Must pur your CodePipeline artifact name after "CODEBUILD_SRC_DIR" where your        
+            - cd $CODEBUILD_SRC_DIR_S3Source       
+            #Your further commands to build the artifacts. Below command is an example.
+            - docker build -t sample:latest .
