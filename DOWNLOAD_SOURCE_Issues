@@ -1,0 +1,20 @@
+--> When you are using AWS CodeCommit and your CodeBuild is unable to download the source credentials you must add below json permission to your CodeBuild service role which allow AWS CodeBuild to download the repository. Without role, it will fail with the below message.
+
+ CLIENT_ERROR: authorization failed for primary source and source version main
+
+-----------------------
+{            
+    "Sid": "Statement",            
+    "Effect": "Allow",            
+    "Action": [                
+        "codecommit:GitPull"            
+        ],            
+        "Resource": [                
+            "<CodeCommit_Repository_ARN>"          
+            ]        
+}
+-----------------------
+
+After applying the changes if you see "CLIENT_ERROR: repository not found for primary source" message make sure you must use correct branch in the configurations. 
+
+--> If you are using CodeConnections, you must allow CodeConnections permissions to the CodeBuild service role to authenticate with version control system (GitHub, BitBucket).
