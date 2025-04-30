@@ -1,0 +1,82 @@
+To leverage a custom Amazon Machine Image (AMI) for your AWS CodeBuild fleet capacity, meticulous configuration of both the AMI and associated AWS Key Management Service (KMS) key (if the AMI is encrypted) is essential. The encryption status of your custom AMI dictates the necessary preparatory steps.
+
+AMI Encryption Considerations:
+
+Encrypted Custom AMIs: If your custom AMI is encrypted, specific permissions must be granted to enable CodeBuild fleet capacity to access it.
+Unencrypted Custom AMIs: While encryption is not a prerequisite, you still need to grant CodeBuild organization-level permissions to your AMI.
+Default KMS Key Incompatibility: It is crucial to note that custom AMIs whose snapshots are encrypted solely with the default AWS KMS key cannot be utilized with CodeBuild fleet capacity. You must employ a customer-managed KMS key for encrypted custom AMIs.
+Step 1: Granting CodeBuild Organization Permissions to Your Custom AMI
+
+Regardless of the encryption status of your custom AMI, you must explicitly grant permissions to the AWS CodeBuild service at the organizational level. This allows CodeBuild to launch instances from your custom AMI.
+
+To add this permission, follow these steps:
+
+Navigate to the EC2 service in the AWS Management Console.
+In the left-hand navigation pane, under "Images," click on AMIs.
+Select your custom AMI from the list.
+Click on the Actions button and choose Edit permissions.
+Click on Add organization ARN.
+Consult the official AWS CodeBuild documentation for the specific organization ARN corresponding to your AWS Region: https://docs.aws.amazon.com/codebuild/latest/userguide/fleets.reserved-capacity-fleets.html.
+Enter the appropriate organization ARN for your region.
+Click Save.
+Step 2: Configuring Permissions for Encrypted Custom AMIs (Using Customer-Managed KMS Keys)
+
+If your custom AMI's snapshot is encrypted using a customer-managed KMS key, you must grant the AWS organization access to this key. This ensures that CodeBuild can decrypt the AMI during instance launch.
+
+To modify the KMS key policy, follow these steps:
+
+--> Navigate to the AWS KMS service in the AWS Management Console.
+--> In the left-hand navigation pane, click on Customer managed keys.
+--> Select the KMS key used to encrypt your custom AMI's snapshot.
+--> In the "Key policy" section, click Edit.
+--> Add a new statement to the key policy with the following structure. Replace "o-123example" with the Organization ID relevant to your AWS account and region. You can find this Organization ID in the AWS Organizations console or within the AWS documentation linked in Step 1.
+
+-------------------------------------------------
+{
+    "Sid": "Allow access for organization root",
+    "Effect": "Allow",
+    "Principal": "*",
+    "Action": [
+        "kms:Describe*",
+        "kms:List*",
+        "kms:Get*",
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:CreateGrant"
+    ],
+    "Resource": "*",
+    "Condition": {
+        "StringEquals": {
+            "aws:PrincipalOrgID": "o-123example"
+        }
+    }
+}
+-------------------------------------------------
+
+Click Save changes.
+
+Step 3: Granting Permissions to the CodeBuild Fleet Capacity Service Role on the KMS Key (for Encrypted AMIs)
+
+In addition to the organization-level permission, you must explicitly grant usage permissions for the KMS key to the IAM service role associated with your CodeBuild fleet capacity.
+
+While still in the KMS key policy editor, identify the "Principal" section of an existing statement (or create a new statement).
+
+Ensure that the ARN of your CodeBuild fleet capacity service role is included as a principal with permissions to perform the necessary KMS actions (as listed in the previous policy statement). The service role ARN will typically follow a pattern similar to arn:aws:iam::your-account-id:role/aws-service-role/codebuild.amazonaws.com/AWSServiceRoleForCodeBuildFleet.
+
+If the service role is not already listed, add it to the "Principal" section of an appropriate statement.
+
+Click Save changes.
+
+Step 4: Utilizing the Custom AMI for CodeBuild Fleet Creation
+
+Once you have applied the aforementioned configurations, you can proceed with creating your CodeBuild fleet capacity and specifying your custom AMI. Follow the steps outlined previously for creating a CodeBuild fleet, but in the fleet configuration:
+
+When prompted for the AMI, select the option to "Use a custom AMI".
+
+Enter the ID of your custom AMI.
+
+Continue with the remaining fleet configuration steps as needed.
+
+By diligently following these detailed steps, you can successfully configure and utilize your custom AMI, whether encrypted or unencrypted, for your AWS CodeBuild fleet capacity, ensuring a tailored and secure build environment.
